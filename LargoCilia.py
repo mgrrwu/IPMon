@@ -7,7 +7,7 @@ from ij.io import OpenDialog
 from ij.process import ImageStatistics as IS
 from java.awt.Dialog import ModalExclusionType 
 from ij import IJ
-
+from ij.plugin import ImageCalculator
 ###########################################################################
 def getChannels():
 	gd = GenericDialog( "Select stack's channels" )
@@ -28,12 +28,12 @@ def getChannels():
 # Create dialog for input parameters
 ##########################################################################
 def getOptions():
-    lowerThreshold = 40;
+    lowerThreshold = 80;
     upperThreshold = 255;
-    stepNumber = 0
+    stepNumber = 1
     stepThreshold = 5;
-    p3DOCThreshold = 70;
-    p3DOCSlice = 1;
+    #p3DOCThreshold = 70;
+    #p3DOCSlice = 1;
     p3DOCmin = 100;
     p3DOCmax = 2658480;
     gd = GenericDialog( "Parameters" )
@@ -43,7 +43,7 @@ def getOptions():
     gd.addNumericField("Step number", stepNumber, 0)  # show 2 decimals  
     gd.addNumericField("Step threshold", stepThreshold, 0)  # show 2 decimals      
     gd.addMessage("3D Object Counter parameters")
-    gd.addNumericField("threshold", p3DOCThreshold, 0)  # show 2 decimals  
+    #gd.addNumericField("threshold", p3DOCThreshold, 0)  # show 2 decimals  
     gd.addNumericField("min.", p3DOCmin, 0)  # show 2 decimals  
     gd.addNumericField("max.", p3DOCmax, 0)  # show 2 decimals  
     gd.showDialog()  
@@ -54,11 +54,12 @@ def getOptions():
     upperThreshold = gd.getNextNumber()
     stepNumber = gd.getNextNumber()
     stepThreshold = gd.getNextNumber()
-    p3DOCThreshold = gd.getNextNumber()
+    #p3DOCThreshold = gd.getNextNumber()
     p3DOCmin = gd.getNextNumber()
     p3DOCmax = gd.getNextNumber()   
-    return lowerThreshold, upperThreshold, stepThreshold, p3DOCThreshold, p3DOCmin, p3DOCmax
-  
+    return lowerThreshold, upperThreshold, stepNumber, stepThreshold, p3DOCmin, p3DOCmax      
+	#return lowerThreshold, upperThreshold, stepNumber, stepThreshold, p3DOCThreshold, p3DOCmin, p3DOCmax
+	
 ##########################################################################
 # Remove file
 ##########################################################################
@@ -103,6 +104,18 @@ def L2Distance( a, b ):
                 (a[1] - b[1]) ** 2 +
                 (a[2] - b[2]) ** 2)    
 
+
+##########################################################################
+# Borrar todas las ventanas 
+##########################################################################
+def closeall():
+	win = IJ.getImage()
+	while win != None:
+		win.close()
+		win = IJ.getImage()				
+	return 
+
+
 ##########################################################################
 # Main function
 ##########################################################################
@@ -118,9 +131,9 @@ filepath = inputdir + filename
 
 #se abren las opciones de stack
 imp = IJ.openImage( filepath )#por algún motivo no se carga el objeto ImagePlus en la salida imp
-#imp = IJ.getImage()#línea agregada para obtener el objeto ImagePlus en la variable imp
+imp = IJ.getImage()#línea agregada para obtener el objeto ImagePlus en la variable imp
 #imp.show()
-#imp.setTitle( "X0" )
+imp.setTitle( "X0" )
 
 #me quedo con el canal que tiene la cilia que por lo general es el verde (canal C1)
 IJ.run( "Split Channels", "" )
@@ -139,8 +152,9 @@ IJ.getImage().close()
 # Get parameters from dialog
 options = getOptions()
 if options is not None:  
-	lowerThreshold, upperThreshold, stepThreshold, p3DOCThreshold, p3DOCmin, p3DOCmax = options  
-p3DOCSlice = 1
+	lowerThreshold, upperThreshold, stepNumber, stepThreshold, p3DOCmin, p3DOCmax = options  
+	#lowerThreshold, upperThreshold, stepNumber, stepThreshold, p3DOCThreshold, p3DOCmin, p3DOCmax = options  
+#p3DOCSlice = 1
 
 
 
@@ -148,10 +162,13 @@ p3DOCSlice = 1
 list_x2 = [] #guarda las imagenes umbralizadas
 list_x3 = []#guarda las mascaras
 list_x4 = []#guarda los esqueletos
+ic = ImageCalculator() #para hacer llamadas más cortas de la clase
+
+#UMBRALIZACION
 for i in range(stepNumber):#hacer tantas veces como diga stepNumber
 	x2= x1.duplicate() 
 	x2.setTitle('x2_'+repr(i))
-	x2.show()
+	#x2.show()
 	#efectúo la umbralización con OTSU
 	#IJ.run("Threshold...")#si se quiere correr las opciones Fiji
 	IJ.setThreshold(x2, (lowerThreshold +stepThreshold*i) , upperThreshold, "Black & White")
@@ -160,24 +177,54 @@ for i in range(stepNumber):#hacer tantas veces como diga stepNumber
 	list_x2.append( x2 )
 	#
 	#
+
+#3D OBJECTS COUNTER
+for i in range(stepNumber):
+	x2  = list_x2[i] 	
 	x2_aux = x2.duplicate()
 	x2_aux.setTitle('x2_aux')
 	#run("3D OC Options", "volume surface nb_of_obj._voxels nb_of_surf._voxels integrated_density mean_gray_value std_dev_gray_value median_gray_value minimum_gray_value maximum_gray_value centroid mean_distance_to_surface std_dev_distance_to_surface median_distance_to_surface centre_of_mass bounding_box show_masked_image_(redirection_requiered) dots_size=5 font_size=10 store_results_within_a_table_named_after_the_image_(macro_friendly) redirect_to=x1")
 	IJ.run("3D OC Options", "show_masked_image_(redirection_requiered) dots_size=5 font_size=10 store_results_within_a_table_named_after_the_image_(macro_friendly) redirect_to=x2_aux")
-	IJ.run(x2, "3D Objects Counter", "threshold=0 slice=0 min.=1000 max.=10000 exclude_objects_on_edges objects")
+	IJ.run(x2, "3D Objects Counter", "threshold=0 slice=0 min.=" + repr(p3DOCmin)+" max.=" + repr(p3DOCmax)+ " exclude_objects_on_edges objects")
 	#guardo la mascara en list_x3
 	IJ.selectWindow("Objects map of x2_"+repr(i))		
 	#IJ.selectWindow("Masked image for x2_"+repr(i)+" redirect to x2_aux")		
 	mask = IJ.getImage()
 	mask.setTitle('mask_'+repr(i))
 	list_x3.append( mask )
+	x2_aux.close()
+	mask.close()
 	#
-	#Skeletonize
-	IJ.run("Skeletonize (2D/3D)");#se corre el plugin sobre la ventana activa que es mask
-	skeleton = mask.duplicate()
-	skeleton.setTitle(skeleton_'+repr(i))
-	list_x4.append ( skeleton )#guardo el esqueleto
+	
+#SKELETONIZE
+for i in range(stepNumber):	
+	skeleton = list_x3[i]	
+	skeleton.setTitle('skeleton_'+repr(i))
+	IJ.run(skeleton, "Skeletonize (2D/3D)", "");#se corre el plugin sobre la ventana activa que es mask	
+	#recorto con la máscara más corta
+	ic.run("AND create stack", list_x3[-1] ,skeleton )
+	list_x4.append( skeleton )#guardo el esqueleto
+	#skeleton.show()
 	
 
+#ADD mask
+for i in range(stepNumber):	
+	skeleton = list_x4[i]
+	if i==0:#en caso que esté en la primera iteración
+		sum_skeletons = skeleton 
+		sum_skeletons.setTitle('sum_skeletons_'+repr(i))
+		#sum_skeletons.show()
+	else:
+		sum_skeletons.setTitle('sum_skeletons_'+repr(i))
+		#sum_skeletons.show()
+		ic.run("Add create stack", sum_skeletons , skeleton )
+		#sum_skeletons.close()
+		
+	#IJ.selectWindow('skeleton_'+repr(i))
+	#IJ.getImage().close()
 
+			
+sum_skeletons.setTitle('sumOfSkeletons_'+repr(stepNumber))
+sum_skeletons.show()	
 
+#
