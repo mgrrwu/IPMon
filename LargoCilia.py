@@ -30,6 +30,8 @@ def getChannels():
 def getOptions():
     lowerThreshold = 40;
     upperThreshold = 255;
+    stepNumber = 0
+    stepThreshold = 5;
     p3DOCThreshold = 70;
     p3DOCSlice = 1;
     p3DOCmin = 100;
@@ -38,6 +40,8 @@ def getOptions():
     gd.addMessage("Binary mask thresholds")
     gd.addNumericField("Lower Threshold", lowerThreshold, 0)  # show 2 decimals  
     gd.addNumericField("Upper threshold", upperThreshold, 0)  # show 2 decimals  
+    gd.addNumericField("Step number", stepNumber, 0)  # show 2 decimals  
+    gd.addNumericField("Step threshold", stepThreshold, 0)  # show 2 decimals      
     gd.addMessage("3D Object Counter parameters")
     gd.addNumericField("threshold", p3DOCThreshold, 0)  # show 2 decimals  
     gd.addNumericField("min.", p3DOCmin, 0)  # show 2 decimals  
@@ -48,10 +52,12 @@ def getOptions():
     # Read out the options  
     lowerThreshold = gd.getNextNumber()
     upperThreshold = gd.getNextNumber()
+    stepNumber = gd.getNextNumber()
+    stepThreshold = gd.getNextNumber()
     p3DOCThreshold = gd.getNextNumber()
     p3DOCmin = gd.getNextNumber()
     p3DOCmax = gd.getNextNumber()   
-    return lowerThreshold, upperThreshold, p3DOCThreshold, p3DOCmin, p3DOCmax
+    return lowerThreshold, upperThreshold, stepThreshold, p3DOCThreshold, p3DOCmin, p3DOCmax
   
 ##########################################################################
 # Remove file
@@ -112,9 +118,9 @@ filepath = inputdir + filename
 
 #se abren las opciones de stack
 imp = IJ.openImage( filepath )#por algún motivo no se carga el objeto ImagePlus en la salida imp
-imp = IJ.getImage()#línea agregada para obtener el objeto ImagePlus en la variable imp
-imp.show()
-imp.setTitle( "X0" )
+#imp = IJ.getImage()#línea agregada para obtener el objeto ImagePlus en la variable imp
+#imp.show()
+#imp.setTitle( "X0" )
 
 #me quedo con el canal que tiene la cilia que por lo general es el verde (canal C1)
 IJ.run( "Split Channels", "" )
@@ -129,21 +135,49 @@ IJ.selectWindow("C3-X0")
 IJ.getImage().close()
 
 
-#genero duplicado de x1 para efectuar umbralización
-x2 = x1.duplicate()
-x2.setTitle('x2')
-x2.show()
 
 # Get parameters from dialog
 options = getOptions()
 if options is not None:  
-	lowerThreshold, upperThreshold, p3DOCThreshold, p3DOCmin, p3DOCmax = options  
+	lowerThreshold, upperThreshold, stepThreshold, p3DOCThreshold, p3DOCmin, p3DOCmax = options  
 p3DOCSlice = 1
 
-IJ.setThreshold(x2, lowerThreshold, upperThreshold)
-IJ.run(x2, "Convert to Mask", "method=Otsu background=Dark black" )
 
-#efectúo la umbralización con OTSU
-#lowerThreshold = 0  
-#upperThresold = 108
-#IJ.setThreshold(x2, 0, 108, "Black & White") 
+
+#genero duplicados de x1 para efectuar umbralización en cada uno
+list_x2 = [] #guarda las imagenes umbralizadas
+list_x3 = []#guarda las mascaras
+list_x4 = []#guarda los esqueletos
+for i in range(stepNumber):#hacer tantas veces como diga stepNumber
+	x2= x1.duplicate() 
+	x2.setTitle('x2_'+repr(i))
+	x2.show()
+	#efectúo la umbralización con OTSU
+	#IJ.run("Threshold...")#si se quiere correr las opciones Fiji
+	IJ.setThreshold(x2, (lowerThreshold +stepThreshold*i) , upperThreshold, "Black & White")
+	IJ.run(x2, "Convert to Mask", "method=Otsu background=Dark black" )
+	#se guarda resultado umbralización en list_x2
+	list_x2.append( x2 )
+	#
+	#
+	x2_aux = x2.duplicate()
+	x2_aux.setTitle('x2_aux')
+	#run("3D OC Options", "volume surface nb_of_obj._voxels nb_of_surf._voxels integrated_density mean_gray_value std_dev_gray_value median_gray_value minimum_gray_value maximum_gray_value centroid mean_distance_to_surface std_dev_distance_to_surface median_distance_to_surface centre_of_mass bounding_box show_masked_image_(redirection_requiered) dots_size=5 font_size=10 store_results_within_a_table_named_after_the_image_(macro_friendly) redirect_to=x1")
+	IJ.run("3D OC Options", "show_masked_image_(redirection_requiered) dots_size=5 font_size=10 store_results_within_a_table_named_after_the_image_(macro_friendly) redirect_to=x2_aux")
+	IJ.run(x2, "3D Objects Counter", "threshold=0 slice=0 min.=1000 max.=10000 exclude_objects_on_edges objects")
+	#guardo la mascara en list_x3
+	IJ.selectWindow("Objects map of x2_"+repr(i))		
+	#IJ.selectWindow("Masked image for x2_"+repr(i)+" redirect to x2_aux")		
+	mask = IJ.getImage()
+	mask.setTitle('mask_'+repr(i))
+	list_x3.append( mask )
+	#
+	#Skeletonize
+	IJ.run("Skeletonize (2D/3D)");#se corre el plugin sobre la ventana activa que es mask
+	skeleton = mask.duplicate()
+	skeleton.setTitle(skeleton_'+repr(i))
+	list_x4.append ( skeleton )#guardo el esqueleto
+	
+
+
+
