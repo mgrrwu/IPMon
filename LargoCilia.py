@@ -205,7 +205,7 @@ for i in range(stepNumber):
 	skeleton.setTitle('skeleton_'+repr(i))
 	IJ.run(skeleton, "Skeletonize (2D/3D)", "");#se corre el plugin sobre la ventana activa que es mask	
 	#recorto con la máscara más restrictiva ("la mas corta")
-	ic.run("AND create stack", list_x3[-1] ,skeleton )
+	skeleton = ic.run("AND create stack", list_x3[-1] ,skeleton )
 	list_x4.append( skeleton )#guardo el esqueleto
 	#skeleton.show()
 	
@@ -220,14 +220,28 @@ for i in range(stepNumber):
 	else:
 		sum_skeletons.setTitle('sum_skeletons_'+repr(i))
 		#sum_skeletons.show()
-		ic.run("Add create stack", sum_skeletons , skeleton )
+		sum_skeletons = ic.run("Add create stack", sum_skeletons , skeleton )
 		#sum_skeletons.close()
 		
 				
 sum_skeletons.setTitle('sumOfSkeletons_'+repr(stepNumber))
 sum_skeletons.show()	
-
-
+mask = list_x3[-1].duplicate()
+#modifico el color de mask para visualizar superpuesta a skeleton si efectívamente la cosa está funcionando
+#from java.awt import Color #para generar colores en una LUT que ayude en presentacion de imagenes
+LUT = mask.getLuts()[0]
+LUT.max = 3
+mask.setLut(LUT)
+#mask.show()
+#IJ.run("Window/Level...", "")
+maskANDskeleton = ic.run("Transparent-zero create stack", mask, sum_skeletons)
+maskANDskeleton.show()
+maskANDskeleton.setRoi(551,202,43,48);#no selecciona la ROI solo la marca, hay que aprender a duplicar solo la ROI
+IJ.run(maskANDskeleton, "RGB Color", "")#llevo a color la imagen que quiero visualizar
+#visualización 3D
+#IJ.run("3D Viewer", "");
+#call("ij3d.ImageJ3DViewer.setCoordinateSystem", "false");
+#call("ij3d.ImageJ3DViewer.add", "Result of DUP_mask_6-1", "None", "Result of DUP_mask_6-1", "0", "true", "true", "true", "2", "0");
 
 
 
