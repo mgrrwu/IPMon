@@ -189,25 +189,28 @@ for i in range(stepNumber):
 	#guardo la mascara en list_x3
 	IJ.selectWindow("Objects map of x2_"+repr(i))		
 	#IJ.selectWindow("Masked image for x2_"+repr(i)+" redirect to x2_aux")		
-	mask = IJ.getImage()
+	img = IJ.getImage()
+	mask = img.duplicate()##ERROR MISTICO!!!! por alguna clase de magia rara si no duplico img como mask, luego de hacer list_x3.append(img) y luego img.close(), la cantidad de slice declarados en cada elemento de list_x3 no es igual al que contiene la img  correspondiente!!!  
 	mask.setTitle('mask_'+repr(i))
 	list_x3.append( mask )
-	x2_aux.close()
-	mask.close()
+	x2_aux.close()	
+	img.close()
 	#
+
+
 	
 #SKELETONIZE
 for i in range(stepNumber):	
-	skeleton = list_x3[i]	
+	skeleton = list_x3[i].duplicate()	
 	skeleton.setTitle('skeleton_'+repr(i))
 	IJ.run(skeleton, "Skeletonize (2D/3D)", "");#se corre el plugin sobre la ventana activa que es mask	
-	#recorto con la máscara más corta
+	#recorto con la máscara más restrictiva ("la mas corta")
 	ic.run("AND create stack", list_x3[-1] ,skeleton )
 	list_x4.append( skeleton )#guardo el esqueleto
 	#skeleton.show()
 	
 
-#ADD mask
+#ADD mask para sumar todos los skeletons
 for i in range(stepNumber):	
 	skeleton = list_x4[i]
 	if i==0:#en caso que esté en la primera iteración
@@ -220,11 +223,96 @@ for i in range(stepNumber):
 		ic.run("Add create stack", sum_skeletons , skeleton )
 		#sum_skeletons.close()
 		
-	#IJ.selectWindow('skeleton_'+repr(i))
-	#IJ.getImage().close()
-
-			
+				
 sum_skeletons.setTitle('sumOfSkeletons_'+repr(stepNumber))
 sum_skeletons.show()	
 
-#
+
+
+
+
+'''ERROR MISTICO
+>>> x2_aux = x2.duplicate()
+
+>>> x2_aux.setTitle('x2_aux')
+
+>>> x2_aux.show()
+
+>>> x2_aux
+img[x2_aux (1024x512x1x1x1)]
+
+>>> list_x2[0]
+img[x2_0 (1024x512x1x23x1)]
+
+>>> x2
+img[x2_0 (1024x512x1x23x1)]
+
+>>> x2_aux.getStackSize()
+1
+
+>>> x2.getStackSize()
+23
+
+>>> x2.duplicate()
+img[DUP_x2_0 (1024x512x1x23x1)]
+
+>>> x2_aux=x2.duplicate()
+
+>>> x2_aux
+img[DUP_x2_0 (1024x512x1x23x1)]
+
+>>> x2_aux.setTitle('x2_aux')
+
+>>> x2_aux
+img[x2_aux (1024x512x1x23x1)]'''
+
+
+
+
+
+
+'''ERROR MISTICO 
+>>> list_x3=[]
+
+>>> for i in range(stepNumber):
+	x2  = list_x2[i] 	
+	x2_aux = x2.duplicate()
+	x2_aux.setTitle('x2_aux')
+	#run("3D OC Options", "volume surface nb_of_obj._voxels nb_of_surf._voxels integrated_density mean_gray_value std_dev_gray_value median_gray_value minimum_gray_value maximum_gray_value centroid mean_distance_to_surface std_dev_distance_to_surface median_distance_to_surface centre_of_mass bounding_box show_masked_image_(redirection_requiered) dots_size=5 font_size=10 store_results_within_a_table_named_after_the_image_(macro_friendly) redirect_to=x1")
+	IJ.run("3D OC Options", "show_masked_image_(redirection_requiered) dots_size=5 font_size=10 store_results_within_a_table_named_after_the_image_(macro_friendly) redirect_to=x2_aux")
+	IJ.run(x2, "3D Objects Counter", "threshold=0 slice=0 min.=" + repr(p3DOCmin)+" max.=" + repr(p3DOCmax)+ " exclude_objects_on_edges objects")
+	#guardo la mascara en list_x3
+	IJ.selectWindow("Objects map of x2_"+repr(i))		
+	#IJ.selectWindow("Masked image for x2_"+repr(i)+" redirect to x2_aux")		
+	mask = IJ.getImage()
+	mask.setTitle('mask_'+repr(i))
+	list_x3.append( mask )
+
+>>> list_x3
+[img[mask_0 (1024x512x1x23x1)], img[mask_1 (1024x512x1x23x1)], img[mask_2 (1024x512x1x23x1)], img[mask_3 (1024x512x1x23x1)], img[mask_4 (1024x512x1x23x1)], img[mask_5 (1024x512x1x23x1)], img[mask_6 (1024x512x1x23x1)]]
+
+>>> list_x3 = []
+
+>>> for i in range(stepNumber):
+	x2  = list_x2[i] 	
+	x2_aux = x2.duplicate()
+	x2_aux.setTitle('x2_aux')
+	#run("3D OC Options", "volume surface nb_of_obj._voxels nb_of_surf._voxels integrated_density mean_gray_value std_dev_gray_value median_gray_value minimum_gray_value maximum_gray_value centroid mean_distance_to_surface std_dev_distance_to_surface median_distance_to_surface centre_of_mass bounding_box show_masked_image_(redirection_requiered) dots_size=5 font_size=10 store_results_within_a_table_named_after_the_image_(macro_friendly) redirect_to=x1")
+	IJ.run("3D OC Options", "show_masked_image_(redirection_requiered) dots_size=5 font_size=10 store_results_within_a_table_named_after_the_image_(macro_friendly) redirect_to=x2_aux")
+	IJ.run(x2, "3D Objects Counter", "threshold=0 slice=0 min.=" + repr(p3DOCmin)+" max.=" + repr(p3DOCmax)+ " exclude_objects_on_edges objects")
+	#guardo la mascara en list_x3
+	IJ.selectWindow("Objects map of x2_"+repr(i))		
+	#IJ.selectWindow("Masked image for x2_"+repr(i)+" redirect to x2_aux")		
+	mask = IJ.getImage()
+	mask.setTitle('mask_'+repr(i))
+	list_x3.append( mask )
+	x2_aux.close()
+	mask.close()
+
+>>> list_x3
+[img[mask_0 (1024x512x1x1x1)], img[mask_1 (1024x512x1x1x1)], img[mask_2 (1024x512x1x1x1)], img[mask_3 (1024x512x1x1x1)], img[mask_4 (1024x512x1x1x1)], img[mask_5 (1024x512x1x1x1)], img[mask_6 (1024x512x1x1x1)]]
+
+
+
+
+'''
