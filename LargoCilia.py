@@ -8,6 +8,7 @@ from ij.process import ImageStatistics as IS
 from java.awt.Dialog import ModalExclusionType 
 from ij import IJ
 from ij.plugin import ImageCalculator
+from ij import WindowManager
 ###########################################################################
 def getChannels():
 	gd = GenericDialog( "Select stack's channels" )
@@ -115,6 +116,14 @@ def closeall():
 		win = IJ.getImage()				
 	return 
 
+##########################################################################
+# Tomar una imagen abierta en una ventana
+##########################################################################
+def getImage(title):
+	IJ.selectWindow(title)
+	return IJ.getImage() 
+
+
 
 ##########################################################################
 # Main function
@@ -129,24 +138,28 @@ if filename is None:
 inputdir = od.getDirectory()
 filepath = inputdir + filename  
 
+resultsFileStats = inputdir+"aux_3D_OC_Stats"
+
 #se abren las opciones de stack
-imp = IJ.openImage( filepath )#por algún motivo no se carga el objeto ImagePlus en la salida imp
-imp = IJ.getImage()#línea agregada para obtener el objeto ImagePlus en la variable imp
+img = IJ.openImage( filepath )#por algún motivo no se carga el objeto ImagePlus en la salida imp
+img = IJ.getImage()#línea agregada para obtener el objeto ImagePlus en la variable imp
 #imp.show()
-imp.setTitle( "X0" )
+img.setTitle( "X0" )
 
 #me quedo con el canal que tiene la cilia que por lo general es el verde (canal C1)
 IJ.run( "Split Channels", "" )
-IJ.selectWindow("C1-X0")
-x1 = IJ.getImage();
+#IJ.selectWindow("C1-X0")
+#x1 = IJ.getImage();
+x1 = getImage("C1-X0")
 x1.setTitle('x1')
 
 #borrado de los canales que no utilizo
-IJ.selectWindow("C2-X0")
-IJ.getImage().close()
-IJ.selectWindow("C3-X0")
-IJ.getImage().close()
-
+#IJ.selectWindow("C2-X0")
+#IJ.getImage().close()
+#IJ.selectWindow("C3-X0")
+#IJ.getImage().close()
+getImage("C2-X0").close()
+getImage("C3-X0").close()
 
 
 # Get parameters from dialog
@@ -184,15 +197,23 @@ for i in range(stepNumber):
 	x2_aux = x2.duplicate()
 	x2_aux.setTitle('x2_aux')
 	#run("3D OC Options", "volume surface nb_of_obj._voxels nb_of_surf._voxels integrated_density mean_gray_value std_dev_gray_value median_gray_value minimum_gray_value maximum_gray_value centroid mean_distance_to_surface std_dev_distance_to_surface median_distance_to_surface centre_of_mass bounding_box show_masked_image_(redirection_requiered) dots_size=5 font_size=10 store_results_within_a_table_named_after_the_image_(macro_friendly) redirect_to=x1")
-	IJ.run("3D OC Options", "show_masked_image_(redirection_requiered) dots_size=5 font_size=10 store_results_within_a_table_named_after_the_image_(macro_friendly) redirect_to=x2_aux")
-	IJ.run(x2, "3D Objects Counter", "threshold=0 slice=0 min.=" + repr(p3DOCmin)+" max.=" + repr(p3DOCmax)+ " exclude_objects_on_edges objects")
+	arguments = "volume centroid bounding_box show_masked_image_(redirection_requiered) dots_size=5 font_size=10 store_results_within_a_table_named_after_the_image_(macro_friendly) redirect_to=x2_aux"
+	IJ.run("3D OC Options", arguments)
+	IJ.run(x2, "3D Objects Counter", "threshold=0 slice=0 min.=" + repr(p3DOCmin)+" max.=" + repr(p3DOCmax)+ " exclude_objects_on_edges objects statistics")
+	#Obtengo la salida estadística de 3D Objects Counter
+	title_x2 = x2.getTitle()
+	winStats =WindowManager.getFrame("Statistics for "+title_x2)#tomo la ventana con las estadísticas generadas
+	textStats = winStats.getTextPanel()#tomo el texto de la ventana
+    textStats.saveAs( resultsFileStats )#Guardo externamente la tabla y luego la levanto con GetParameters( resultsFileStats )
+	index, vox, X, Y, Z, Bx, By, Bz, B-width, B-height, B-depth = GetParameters( resultsFileStats )
+	
 	#guardo la mascara en list_x3
 	IJ.selectWindow("Objects map of x2_"+repr(i))		
-	#IJ.selectWindow("Masked image for x2_"+repr(i)+" redirect to x2_aux")		
 	img = IJ.getImage()
-	mask = img.duplicate()##ERROR MISTICO!!!! por alguna clase de magia rara si no duplico img como mask, luego de hacer list_x3.append(img) y luego img.close(), la cantidad de slice declarados en cada elemento de list_x3 no es igual al que contiene la img  correspondiente!!!  
+	mask = img.duplicate()#al cerrar la ventana img al final del ciclo for se borran los datos que contiene img aunque no se avisa de esto, por lo tanto si se quiere guardar alguna ventana abierta hay que guardar un duplicado para no tener problemas
 	mask.setTitle('mask_'+repr(i))
-	list_x3.append( mask )
+	list_x3.append( mask )#almaceno la mascara en la lista correspondiente
+	#cierro ventanas que no preciso
 	x2_aux.close()	
 	img.close()
 	#
@@ -242,46 +263,6 @@ IJ.run(maskANDskeleton, "RGB Color", "")#llevo a color la imagen que quiero visu
 #IJ.run("3D Viewer", "");
 #call("ij3d.ImageJ3DViewer.setCoordinateSystem", "false");
 #call("ij3d.ImageJ3DViewer.add", "Result of DUP_mask_6-1", "None", "Result of DUP_mask_6-1", "0", "true", "true", "true", "2", "0");
-
-
-
-'''ERROR MISTICO
->>> x2_aux = x2.duplicate()
-
->>> x2_aux.setTitle('x2_aux')
-
->>> x2_aux.show()
-
->>> x2_aux
-img[x2_aux (1024x512x1x1x1)]
-
->>> list_x2[0]
-img[x2_0 (1024x512x1x23x1)]
-
->>> x2
-img[x2_0 (1024x512x1x23x1)]
-
->>> x2_aux.getStackSize()
-1
-
->>> x2.getStackSize()
-23
-
->>> x2.duplicate()
-img[DUP_x2_0 (1024x512x1x23x1)]
-
->>> x2_aux=x2.duplicate()
-
->>> x2_aux
-img[DUP_x2_0 (1024x512x1x23x1)]
-
->>> x2_aux.setTitle('x2_aux')
-
->>> x2_aux
-img[x2_aux (1024x512x1x23x1)]'''
-
-
-
 
 
 
